@@ -82,6 +82,7 @@ $(function() {
         weight: 2
     };
     var blocklist;
+    var warningShown = false;
     
     function createBlankBlocklist() {
         var res = [];
@@ -291,9 +292,12 @@ $(function() {
                     }
                 ).addTo(map);
                 gridelement.marker.on('click', function() {
-                    score -= 10;
-                    $('#score').text(score);
-                    getTile(gridelement);
+                    if (warningShown || confirm("There's a penalty for manually collecting tiles by tapping on them.\nYou should be walking around instead!")) {
+                        score -= 10;
+                        $('#score').text(score);
+                        getTile(gridelement);
+                    }
+                    warningShown = true;
                 });
                 gridelement.circle = L.circle(
                     coords,
@@ -479,8 +483,8 @@ $(function() {
         if (pieceFalling) {
             setColour(pieceFalling.positions, 0);
             var stopFalling = false;
-            if (ROTATE_PRESSED % 4) {
-                var newrot = (pieceFalling.direction + ROTATE_PRESSED) % 4;
+            if ((4 + ROTATE_PRESSED) % 4) {
+                var newrot = (4 + pieceFalling.direction + ROTATE_PRESSED) % 4;
                 var currentwidth = getDominoWidth(pieceFalling.domino, pieceFalling.direction);
                 var newwidth = getDominoWidth(pieceFalling.domino, newrot);
                 var xshift = ~~((currentwidth-newwidth)/2);
@@ -585,7 +589,11 @@ $(function() {
         DIRECTION_PRESSED++;
         return false;
     });
-    $('#rotate').click(function() {
+    $('#rotateccw').click(function() {
+        ROTATE_PRESSED--;
+        return false;
+    });
+    $('#rotatecw').click(function() {
         ROTATE_PRESSED++;
         return false;
     });
@@ -605,6 +613,6 @@ $(function() {
         { enableHighAccuracy: true }
     );
     
-    refreshInterval = window.setInterval(refreshLoop, 200);
+    refreshInterval = window.setInterval(refreshLoop, 250);
     
 });

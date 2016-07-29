@@ -45,6 +45,7 @@ h2 {
     display: block;
     width: 308px;
     margin: 0 auto;
+    font-size: 0;
 }
 
 #blocks {
@@ -57,9 +58,10 @@ h2 {
     height: 400px;
 }
 
-#blocks-right {
-    float: right;
-    width: 100px;
+.block-side {
+    display: inline-block;
+    font-size: 15px;
+    width: 50px;
     margin: 2px 0;
     text-align: center;
 }

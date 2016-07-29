@@ -28,24 +28,33 @@
         <p id="closest"></p>
         <p id="countdown">Collect tiles to play!</p>
         <div id="blocks-container">
-            <canvas id="blocks"></canvas>
-            <div id="blocks-right">
+            <div class="block-side">
                 <div id="next"></div>
                 <p>
-                    <a class="blocks-button" href="#" id="rotate">
-                        <i class="fa fa-repeat"></i>
+                    <a class="blocks-button" href="#" id="rotateccw">
+                        <i class="fa fa-undo"></i>
                     </a>
                 </p>
                 <p>
                     <a class="blocks-button" href="#" id="moveleft">
                         <i class="fa fa-arrow-left"></i>
                     </a>
+                </p>
+            </div>
+            <canvas id="blocks"></canvas>
+            <div class="block-side">
+                <p>Score:</p>
+                <h3 id="score">0</h3>
+                <p>
+                    <a class="blocks-button" href="#" id="rotatecw">
+                        <i class="fa fa-repeat"></i>
+                    </a>
+                </p>
+                <p>
                     <a class="blocks-button" href="#" id="moveright">
                         <i class="fa fa-arrow-right"></i>
                     </a>
                 </p>
-                <p>Score:</p>
-                <h3 id="score">0</h3>
             </div>
         </div>
         <p>
