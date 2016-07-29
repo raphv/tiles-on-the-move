@@ -14,58 +14,59 @@ $(function() {
     var NO_TILE = 0;
     var TILE_PRESENT = 1;
     var TILE_USED = 2;
-    var score = 0;
+    var score;
+    var savedData;
     var dominoes = [{
-        label: 'i',
+        label: 'I',
         matrix_0: [[1,1,1,1]],
         matrix_1: [[1],[1],[1],[1]],
         matrix_2: [[1,1,1,1]],
         matrix_3: [[1],[1],[1],[1]],
         colour: '#00ffff'
     }, {
-        label: 'o',
+        label: 'O',
         matrix_0: [[1,1],[1,1]],
         matrix_1: [[1,1],[1,1]],
         matrix_2: [[1,1],[1,1]],
         matrix_3: [[1,1],[1,1]],
         colour: '#ffff00'
     }, {
-        label: 't',
+        label: 'T',
         matrix_0: [[1,1,1],[0,1,0]],
         matrix_1: [[0,1],[1,1],[0,1]],
         matrix_2: [[0,1,0],[1,1,1]],
         matrix_3: [[1,0],[1,1],[1,0]],
         colour: '#ff00ff'
     }, {
-        label: 'j',
+        label: 'J',
         matrix_0: [[1,1,1],[0,0,1]],
         matrix_1: [[0,1],[0,1],[1,1]],
         matrix_2: [[1,0,0],[1,1,1]],
         matrix_3: [[1,1],[1,0],[1,0]],
         colour: '#0000ff'
     }, {
-        label: 'l',
+        label: 'L',
         matrix_0: [[1,1,1],[1,0,0]],
         matrix_1: [[1,1],[0,1],[0,1]],
         matrix_2: [[0,0,1],[1,1,1]],
         matrix_3: [[1,0],[1,0],[1,1]],
         colour: '#ff8000'
     }, {
-        label: 's',
+        label: 'S',
         matrix_0: [[0,1,1],[1,1,0]],
         matrix_1: [[1,0],[1,1],[0,1]],
         matrix_2: [[0,1,1],[1,1,0]],
         matrix_3: [[1,0],[1,1],[0,1]],
         colour: '#00ff00'
     }, {
-        label: 'z',
+        label: 'Z',
         matrix_0: [[1,1,0],[0,1,1]],
         matrix_1: [[0,1],[1,1],[1,0]],
         matrix_2: [[1,1,0],[0,1,1]],
         matrix_3: [[0,1],[1,1],[1,0]],
         colour: '#ff0000'
     }];
-    var grid = {};
+    var grid;
     var refPos = null;
     var waitingPieces = [];
     var pieceFalling = null;
@@ -73,16 +74,87 @@ $(function() {
     var ROTATE_PRESSED = 0;
     var COUNTDOWN_SECONDS = 5;
     var SCORES = [0, 40, 100, 300, 1200];
+    var GAME_STARTED = false;
     var circleStyle = {
         color: "#ff00ff",
         opacity: .8,
         fillOpacity: .2,
         weight: 2
     };
+    var blocklist;
+    
+    function createBlankBlocklist() {
+        var res = [];
+        for (var i = 0; i < (BUFFER_ROWS+ROWS); i++) {
+            var row = [];
+            for (var j = 0; j < COLUMNS; j++) {
+                row.push(0);
+            };
+            res.push(row);
+        }
+        return res;
+    }
+    
+    function startGame(data) {
+        savedData = data || {};
+        if (savedData.geoRef) {
+            refPos = savedData.geoRef;
+        }
+        grid = {};
+        if (savedData.geo_grid) {
+            for (var i = 0; i < savedData.geo_grid.length; i++) {
+                var g = savedData.geo_grid[i];
+                var gridelement = {
+                    type: g[1]
+                };
+                if (g[1] == TILE_PRESENT) {
+                    gridelement.domino_type = g[2];
+                    gridelement.domino = dominoes[g[2]];
+                }
+                grid[g[0]] = gridelement;
+            }
+        }
+        score = savedData.score || 0;
+        if (!savedData.tile_grid) {
+            savedData.tile_grid = createBlankBlocklist();
+        }
+        blocklist = savedData.tile_grid;
+        $("#score").text(score);
+        redraw();
+    }
+       
+    function deleteSavedGame() {
+        window.localStorage.removeItem('saved-game');
+    }
+    
+    function commitChanges() {
+        window.localStorage.setItem('saved-game',JSON.stringify(savedData));
+    }
+    
+    function saveGeoPart() {
+        var savedGrid = [];
+        for (var k in grid) {
+            var sge = [k,grid[k].type];
+            if (grid[k].type == TILE_PRESENT) {
+                sge.push(grid[k].tile_type);
+            }
+            savedGrid.push(sge);
+        }
+        savedData.geo_ref = [refPos.lat, refPos.lng];
+        savedData.geo_grid = savedGrid;
+        savedData.score = score;
+        commitChanges();
+    }
+    
+    function saveTilePart() {
+        savedData.score = score;
+        commitChanges();
+    }
     
     function getDominoHeight(domino, position) {
         return domino['matrix_'+position].length;
     }
+    
     function getDominoWidth(domino, position) {
         return domino['matrix_'+position][0].length;
     }
@@ -181,6 +253,7 @@ $(function() {
         delete gridelement.marker;
         delete gridelement.domino;
         $(window).scrollTop($('#blocks').position().top);
+        saveGeoPart();
     }
     
     function getTile(gridelement) {
@@ -205,26 +278,23 @@ $(function() {
         var interval = setInterval(iterate, 300);
     }
     
-    function addTile(x,y) {
-        var gridcoord = [x,y].join(',');
-        if (!grid[gridcoord]) {
-            var gridelement = {};
-            var n = Math.floor(Math.random()*dominoes.length/DENSITY);
-            if (n < dominoes.length) {
-                gridelement.type = TILE_PRESENT;
-                gridelement.domino = dominoes[n];
-                var coords = gridToLatLng([x,y]);
+    function addElementOnMap(gridcoord) {
+        var gridelement = grid[gridcoord] || {};
+        var coords = gridToLatLng(gridcoord.split(','));
+        gridelement.on_map = true;
+        switch (gridelement.type) {
+            case TILE_PRESENT:
                 gridelement.marker = L.marker(
                     coords,
                     {
                         'icon': gridelement.domino.leaflet_icon
                     }
                 ).addTo(map);
-                /* DEBUG FEATURE */
                 gridelement.marker.on('click', function() {
+                    score -= 10;
+                    $('#score').text(score);
                     getTile(gridelement);
                 });
-                /* */
                 gridelement.circle = L.circle(
                     coords,
                     TRIGGERING_RADIUS,
@@ -235,10 +305,44 @@ $(function() {
                         weight: 6
                     }
                 ).addTo(map);
+            break;
+            case TILE_USED:
+                gridelement.circle = L.circle(
+                    coords,
+                    TRIGGERING_RADIUS,
+                    {
+                        color: "#cccccc",
+                        opacity: .8,
+                        fillOpacity: .1,
+                        weight: 6
+                    }
+                ).addTo(map);
+            break;
+        }
+    }
+    
+    function checkElements() {
+        for (var k in grid) {
+            if (!grid[k].on_map) {
+                addElementOnMap(k);
+            }
+        }
+    }
+    
+    function addTile(x,y) {
+        var gridcoord = [x,y].join(',');
+        if (!grid[gridcoord]) {
+            var gridelement = {};
+            var n = Math.floor(Math.random()*dominoes.length/DENSITY);
+            if (n < dominoes.length) {
+                gridelement.type = TILE_PRESENT;
+                gridelement.tile_type = n;
+                gridelement.domino = dominoes[n];
             } else {
                 gridelement.type = NO_TILE;
             }
             grid[gridcoord] = gridelement;
+            saveGeoPart();
         }
     }
     
@@ -252,6 +356,7 @@ $(function() {
                 addTile(x, y);
             }
         }
+        checkElements();
     }
     
     function locationsuccess(pos) {
@@ -274,6 +379,8 @@ $(function() {
             var dist = Math.sqrt(dx*dx + dy*dy) * GRID_SIZE;
             if (dist < TRIGGERING_RADIUS) {
                 $('#closest').text("Congratulations, you've collected a tile!");
+                score += 4;
+                $('#score').text(score);
                 getTileCountdown(gridelement);
             } else {
                 $('#closest').text("There's a tile just " + ~~dist + " metres away!");
@@ -291,24 +398,18 @@ $(function() {
                 fillOpacity: 0,
             };
             innerLocCircle.setStyle(style);
+            outerLocCircle.setStyle(style);
         }
     }
     
-    var blockcv = document.getElementById('blocks');
-    blockcv.width = COLUMNS * BLOCK_SIZE;
-    blockcv.height = ROWS * BLOCK_SIZE;
-    var blocklist = [];
-    for (var i = 0; i < (BUFFER_ROWS+ROWS); i++) {
-        var row = [];
-        for (var j = 0; j < COLUMNS; j++) {
-            row.push(0);
-        };
-        blocklist.push(row);
-    }
+    $('#blocks').attr({
+        width: COLUMNS * BLOCK_SIZE,
+        height: ROWS * BLOCK_SIZE
+    });
     
     function redraw() {
         window.requestAnimationFrame(function() {
-            var ctx = document.getElementById('blocks').getContext('2d');
+            var ctx = $('#blocks')[0].getContext('2d');
             ctx.clearRect(0,0,COLUMNS * BLOCK_SIZE,ROWS * BLOCK_SIZE);
             ctx.strokeStyle = "#000000";
             for (var i = 0; i < ROWS; i++) {
@@ -461,7 +562,10 @@ $(function() {
                     if (!allZeroes) {
                         window.clearInterval(refreshInterval);
                         $('#countdown,#closest').text("GAME OVER");
+                        deleteSavedGame();
                         window.alert('Game over!');
+                    } else {
+                        saveTilePart();
                     }
                 }
             }
@@ -472,7 +576,6 @@ $(function() {
         ROTATE_PRESSED = 0;
     }
         
-    refreshInterval = window.setInterval(refreshLoop, 200);
     
     $('#moveleft').click(function() {
         DIRECTION_PRESSED--;
@@ -487,6 +590,21 @@ $(function() {
         return false;
     });
     
-    window.navigator.geolocation.watchPosition(locationsuccess);
+    var savedGameStr = window.localStorage.getItem('saved-game');
+    
+    if (savedGameStr && confirm('Do you wish to continue the game you were playing?')) {
+        startGame(JSON.parse(window.localStorage.getItem('saved-game')));
+    } else {
+        window.localStorage.removeItem('saved-game');
+        startGame({});
+    }
+    
+    window.navigator.geolocation.watchPosition(
+        locationsuccess,
+        locationerror,
+        { enableHighAccuracy: true }
+    );
+    
+    refreshInterval = window.setInterval(refreshLoop, 200);
     
 });

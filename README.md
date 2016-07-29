@@ -6,8 +6,10 @@
 
 Move around town to collect tiles, then play them as in Tetris.
 
+Cheat mode allows you to collect tiles by tapping them on the map, but you'll get negative points for that!
+
 ## Features to be added
 
-- Save games in case the browser refreshes
+- Keep high scores
 - Control tiles with accelerometer/gyroscope
 - Graphics overhaul
